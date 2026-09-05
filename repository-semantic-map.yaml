@@ -1,0 +1,12 @@
+version: 1
+repository: davlindh/news-contextualizer
+purpose: Experimental contextualization of incoming news and information signals.
+status: experimental-reference
+canonical_parent: Omniframez
+capabilities: [signal-ingestion, contextualization, synthesis]
+vertical: information-contextualization
+omniframez_role: contextualization-experiment
+evidence: {confidence: inferred, sources: [repository-name]}
+harvest_action: inspect-and-harvest-unique-capabilities
+relations:
+  - contributes_to: Context Engine and Insight Engine
