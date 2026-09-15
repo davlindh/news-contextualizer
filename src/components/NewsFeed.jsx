@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import axios from 'axios';
 import { scoreArticlesByRelevance } from '../utils/relevanceScoring';
 import { summarizeArticle, fetchContextualLinks } from '../utils/metaContextual';
+import { getSampleArticles } from '../utils/sampleArticles';
 
 const NewsFeed = ({ sortOption, category, source, tag }) => {
   const [articles, setArticles] = useState([]);
