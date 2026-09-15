@@ -112,10 +112,8 @@ const Index = () => {
           <Box width="20%" p={4} borderWidth="1px" borderRadius="lg" bg="gray.50">
             <Heading size="md" mb={4}>Further Reading</Heading>
             <VStack align="start">
-              <Link href="#">Contact Us</Link>
-              <Link href="#">About Us</Link>
-              <Link href="#">Privacy Policy</Link>
-              <Link href="#">Terms of Service</Link>
+              <Link as={RouterLink} to="/contact">Contact Us</Link>
+              <Link as={RouterLink} to="/settings">News Settings</Link>
             </VStack>
           </Box>
         </Flex>
