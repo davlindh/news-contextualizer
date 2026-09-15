@@ -32,8 +32,8 @@ const Index = () => {
   return (
     <Container centerContent maxW="container.xl" height="100vh" display="flex" flexDirection="column" justifyContent="center" alignItems="center">
       <VStack spacing={4} width="full">
-        <Text fontSize="2xl">Your Blank Canvas</Text>
-        <Text>Chat with the agent to start making edits.</Text>
+        <Heading as="h1" size="xl">News Contextualizer</Heading>
+        <Text color="gray.600">Live headlines with context, search and topic filters.</Text>
         <Input 
           placeholder="Enter your query here..." 
           value={query} 
