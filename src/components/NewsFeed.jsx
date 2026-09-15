@@ -155,7 +155,7 @@ const NewsFeed = ({ sortOption, category, source, tag }) => {
               <Tooltip label="Author of the article" aria-label="Author Tooltip">
                 <Text mt={2} fontSize="sm" color="gray.500">By {article.author || 'Unknown Author'} on {new Date(article.publishedAt).toLocaleDateString()}</Text>
               </Tooltip>
-              <Text mt={2} fontSize="sm" color="gray.500">{article.source.name}</Text>
+              <Text mt={2} fontSize="sm" color="gray.500">{article.source && article.source.name}</Text>
               <VStack mt={2} align="start">
                 {fetchContextualLinks(article).map((link, linkIndex) => (
                   <Link key={linkIndex} href={link.url} isExternal color="teal.500">
