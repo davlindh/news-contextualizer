@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Container, Text, VStack, Input, Button, Box, HStack, Select, Flex, Heading, Link } from "@chakra-ui/react";
+import { Link as RouterLink } from 'react-router-dom';
 import { analyzeQuery, matchQueryToThemes } from '../utils/nlp';
 import NewsFeed from '../components/NewsFeed';
 
@@ -32,8 +33,8 @@ const Index = () => {
   return (
     <Container centerContent maxW="container.xl" height="100vh" display="flex" flexDirection="column" justifyContent="center" alignItems="center">
       <VStack spacing={4} width="full">
-        <Text fontSize="2xl">Your Blank Canvas</Text>
-        <Text>Chat with the agent to start making edits.</Text>
+        <Heading as="h1" size="xl">News Contextualizer</Heading>
+        <Text color="gray.600">Live headlines with context, search and topic filters.</Text>
         <Input 
           placeholder="Enter your query here..." 
           value={query} 
@@ -112,10 +113,8 @@ const Index = () => {
           <Box width="20%" p={4} borderWidth="1px" borderRadius="lg" bg="gray.50">
             <Heading size="md" mb={4}>Further Reading</Heading>
             <VStack align="start">
-              <Link href="#">Contact Us</Link>
-              <Link href="#">About Us</Link>
-              <Link href="#">Privacy Policy</Link>
-              <Link href="#">Terms of Service</Link>
+              <Link as={RouterLink} to="/contact">Contact Us</Link>
+              <Link as={RouterLink} to="/settings">News Settings</Link>
             </VStack>
           </Box>
         </Flex>

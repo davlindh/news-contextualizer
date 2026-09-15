@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Heading, Text, VStack, Spinner, Link, HStack, IconButton, Button, Input, SimpleGrid, Image, Select, Tooltip } from "@chakra-ui/react";
+import { Box, Heading, Text, VStack, Spinner, Link, HStack, IconButton, Button, Input, SimpleGrid, Image, Select, Tooltip, Alert, AlertIcon } from "@chakra-ui/react";
 import { FaThumbsUp, FaThumbsDown } from 'react-icons/fa';
 import { motion } from 'framer-motion';
-import axios from 'axios';
+import { Link as RouterLink } from 'react-router-dom';
+import { supabase } from '../integrations/supabase/client';
 import { scoreArticlesByRelevance } from '../utils/relevanceScoring';
-import { summarizeArticle, fetchContextualLinks } from '../utils/metaContextual';
-import { getSampleArticles } from '../utils/sampleArticles';
+import { summarizeArticle } from '../utils/metaContextual';
 
 const NewsFeed = ({ sortOption, category, source, tag }) => {
   const [articles, setArticles] = useState([]);
@@ -13,186 +13,149 @@ const NewsFeed = ({ sortOption, category, source, tag }) => {
   const [feedback, setFeedback] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
-  const [suggestions, setSuggestions] = useState([]);
-  const [totalPages, setTotalPages] = useState(1);
-  const [pageInput, setPageInput] = useState('');
-  const articlesPerPage = 50;
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [provider, setProvider] = useState('hackernews');
+  const [error, setError] = useState(null);
+  const articlesPerPage = 24;
 
   useEffect(() => {
-    const applyArticles = (list) => {
-      let filtered = list.filter(a => a && a.title);
-      if (category && category !== 'all') {
-        filtered = filtered.filter(a => !a.category || a.category === category);
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 500);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const storedFeedback = localStorage.getItem('feedback');
+    if (storedFeedback) setFeedback(JSON.parse(storedFeedback));
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async (chosenProvider, fallbackNotice) => {
+      const { data, error: fnError } = await supabase.functions.invoke('news', {
+        body: {
+          provider: chosenProvider,
+          query: debouncedQuery || tag || '',
+          category,
+          source,
+          page: 1,
+        },
+      });
+
+      if (fnError) {
+        let payload = {};
+        try { payload = JSON.parse(await fnError.context.text()); } catch { /* ignore */ }
+        if (payload.error === 'missing_key' && chosenProvider !== 'hackernews') {
+          return load('hackernews', `No ${chosenProvider === 'gnews' ? 'GNews' : 'NewsAPI'} key saved yet — showing Hacker News instead.`);
+        }
+        if (chosenProvider !== 'hackernews') {
+          return load('hackernews', 'That news service could not be reached — showing Hacker News instead.');
+        }
+        if (!cancelled) {
+          setError('Could not load news right now. Please try again shortly.');
+          setArticles([]);
+          setLoading(false);
+        }
+        return;
       }
-      if (source && source !== 'all') {
-        filtered = filtered.filter(a => !a.source || !a.source.name || a.source.name.toLowerCase().includes(source.split('-')[0]));
-      }
-      if (tag) {
-        const t = tag.toLowerCase();
-        filtered = filtered.filter(a => (a.title + ' ' + (a.description || '')).toLowerCase().includes(t));
-      }
-      let scored = scoreArticlesByRelevance(filtered, feedback, searchQuery);
+
+      if (cancelled) return;
+      const list = (data?.articles || []).filter((a) => a && a.title);
+      let scored = scoreArticlesByRelevance(list, feedback, '');
       if (sortOption === 'date') {
         scored = [...scored].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
       } else if (sortOption === 'popularity') {
         scored = [...scored].sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
       }
       setArticles(scored);
-      setTotalPages(Math.max(1, Math.ceil(scored.length / articlesPerPage)));
+      setError(fallbackNotice || null);
       setCurrentPage(1);
-    };
-
-    const fetchNews = async () => {
-      try {
-        const response = await axios.get('https://newsapi.org/v2/top-headlines', {
-          params: {
-            country: 'us',
-            apiKey: import.meta.env.VITE_NEWS_API_KEY,
-            category: category !== 'all' ? category : undefined,
-            sources: source !== 'all' ? source : undefined,
-            q: tag ? tag : undefined
-          }
-        });
-        const list = response.data && response.data.articles ? response.data.articles : [];
-        applyArticles(list.length ? list : getSampleArticles());
-      } catch (error) {
-        applyArticles(getSampleArticles());
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (import.meta.env.VITE_NEWS_API_KEY) {
-      fetchNews();
-    } else {
-      applyArticles(getSampleArticles());
       setLoading(false);
-    }
-  }, [feedback, sortOption, category, source, searchQuery, tag]);
+    };
 
-  useEffect(() => {
-    console.log('Articles state updated:', articles); // Add this line
-  }, [articles]);
+    setLoading(true);
+    load(provider);
+    return () => { cancelled = true; };
+  }, [provider, debouncedQuery, category, source, tag, sortOption, feedback]);
 
-  const handleFeedback = (index, type) => {
+  const handleFeedback = (key, type) => {
     const newFeedback = { ...feedback };
-    if (!newFeedback[index]) {
-      newFeedback[index] = { up: 0, down: 0 };
-    }
-    if (type === 'up') {
-      newFeedback[index].up += 1;
-    } else {
-      newFeedback[index].down += 1;
-    }
+    if (!newFeedback[key]) newFeedback[key] = { up: 0, down: 0 };
+    newFeedback[key] = { ...newFeedback[key], [type]: newFeedback[key][type] + 1 };
     setFeedback(newFeedback);
     localStorage.setItem('feedback', JSON.stringify(newFeedback));
   };
 
-  useEffect(() => {
-    const storedFeedback = localStorage.getItem('feedback');
-    if (storedFeedback) {
-      setFeedback(JSON.parse(storedFeedback));
-    }
-  }, []);
-
-  const handleSearchChange = (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
-    if (query.length > 2) {
-      const matchedSuggestions = articles.filter(article => article.title.includes(query)).map(article => article.title);
-      setSuggestions(matchedSuggestions);
-    } else {
-      setSuggestions([]);
-    }
-  };
-
-  const handlePageInputChange = (e) => {
-    setPageInput(e.target.value);
-  };
-
-  const handlePageInputSubmit = () => {
-    const pageNumber = parseInt(pageInput, 10);
-    if (!isNaN(pageNumber) && pageNumber >= 1 && pageNumber <= totalPages) {
-      setCurrentPage(pageNumber);
-    }
-    setPageInput('');
-  };
-
+  const totalPages = Math.max(1, Math.ceil(articles.length / articlesPerPage));
   const indexOfLastArticle = currentPage * articlesPerPage;
-  const indexOfFirstArticle = indexOfLastArticle - articlesPerPage;
-  const currentArticles = articles.slice(indexOfFirstArticle, indexOfLastArticle);
-  console.log('Current articles:', currentArticles); // Add this line
-
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-
-  if (loading) {
-    return <Spinner size="xl" />;
-  }
+  const currentArticles = articles.slice(indexOfLastArticle - articlesPerPage, indexOfLastArticle);
 
   return (
     <VStack spacing={4} align="stretch">
-      <Input 
-        placeholder="Search articles..." 
-        value={searchQuery} 
-        onChange={handleSearchChange} 
-      />
-      {suggestions.length > 0 && (
-        <Box borderWidth="1px" borderRadius="lg" p={2}>
-          {suggestions.map((suggestion, index) => (
-            <Text key={index}>{suggestion}</Text>
-          ))}
-        </Box>
-      )}
-      <SimpleGrid columns={{ sm: 1, md: 2, lg: 3 }} spacing={4}>
-        {currentArticles.map((article, index) => (
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} key={index}>
-            <Box p={4} borderWidth="1px" borderRadius="lg">
-              <Image src={article.urlToImage} alt={article.title} borderRadius="md" />
-              <Tooltip label="Article Title" aria-label="Article Title Tooltip">
-                <Heading size="md" mt={2}>{article.title}</Heading>
-              </Tooltip>
-              <Text mt={2}>{summarizeArticle(article.content)}</Text>
-              <Tooltip label="Author of the article" aria-label="Author Tooltip">
-                <Text mt={2} fontSize="sm" color="gray.500">By {article.author || 'Unknown Author'} on {new Date(article.publishedAt).toLocaleDateString()}</Text>
-              </Tooltip>
-              <Text mt={2} fontSize="sm" color="gray.500">{article.source && article.source.name}</Text>
-              <VStack mt={2} align="start">
-                {fetchContextualLinks(article).map((link, linkIndex) => (
-                  <Link key={linkIndex} href={link.url} isExternal color="teal.500">
-                    {link.title}
-                  </Link>
-                ))}
-              </VStack>
-              <HStack mt={2}>
-                <IconButton
-                  icon={<FaThumbsUp />}
-                  onClick={() => handleFeedback(index, 'up')}
-                  aria-label="Thumbs Up"
-                />
-                <IconButton
-                  icon={<FaThumbsDown />}
-                  onClick={() => handleFeedback(index, 'down')}
-                  aria-label="Thumbs Down"
-                />
-                <Text>{feedback[index] ? feedback[index].up : 0} Upvotes</Text>
-                <Text>{feedback[index] ? feedback[index].down : 0} Downvotes</Text>
-              </HStack>
-            </Box>
-          </motion.div>
-        ))}
-      </SimpleGrid>
-      <HStack spacing={2} mt={4} justifyContent="center">
-        <Button onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1}>Previous</Button>
-        <Text>Page {currentPage} of {totalPages}</Text>
-        <Button onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages}>Next</Button>
+      <HStack>
         <Input
-          placeholder="Go to page..."
-          value={pageInput}
-          onChange={handlePageInputChange}
-          width="100px"
+          placeholder="Search headlines..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <Button onClick={handlePageInputSubmit}>Go</Button>
+        <Select width="220px" value={provider} onChange={(e) => setProvider(e.target.value)}>
+          <option value="hackernews">Hacker News (no key)</option>
+          <option value="gnews">GNews</option>
+          <option value="newsapi">NewsAPI</option>
+        </Select>
       </HStack>
+
+      {error && (
+        <Alert status="info">
+          <AlertIcon />
+          {error}
+          <Link as={RouterLink} to="/settings" ml={2} color="teal.600">Add a key</Link>
+        </Alert>
+      )}
+
+      {loading ? (
+        <Spinner size="xl" alignSelf="center" />
+      ) : (
+        <SimpleGrid columns={{ sm: 1, md: 2, lg: 3 }} spacing={4}>
+          {currentArticles.map((article, index) => {
+            const key = article.url || `${article.title}-${index}`;
+            return (
+              <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} key={key}>
+                <Box p={4} borderWidth="1px" borderRadius="lg" height="100%">
+                  {article.urlToImage && (
+                    <Image src={article.urlToImage} alt={article.title} borderRadius="md" loading="lazy" />
+                  )}
+                  <Heading size="md" mt={2}>
+                    <Link href={article.url} isExternal>{article.title}</Link>
+                  </Heading>
+                  <Text mt={2}>{summarizeArticle(article.content || article.description)}</Text>
+                  <Tooltip label="Published" aria-label="Published date">
+                    <Text mt={2} fontSize="sm" color="gray.500">
+                      {article.source?.name} · {new Date(article.publishedAt).toLocaleDateString()}
+                    </Text>
+                  </Tooltip>
+                  <HStack mt={2}>
+                    <IconButton icon={<FaThumbsUp />} onClick={() => handleFeedback(key, 'up')} aria-label="Thumbs Up" size="sm" />
+                    <IconButton icon={<FaThumbsDown />} onClick={() => handleFeedback(key, 'down')} aria-label="Thumbs Down" size="sm" />
+                    <Text fontSize="sm">{feedback[key]?.up || 0} up</Text>
+                    <Text fontSize="sm">{feedback[key]?.down || 0} down</Text>
+                  </HStack>
+                </Box>
+              </motion.div>
+            );
+          })}
+        </SimpleGrid>
+      )}
+
+      {!loading && articles.length === 0 && !error && <Text>No headlines matched that search.</Text>}
+
+      {totalPages > 1 && (
+        <HStack spacing={2} mt={4} justifyContent="center">
+          <Button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} isDisabled={currentPage === 1}>Previous</Button>
+          <Text>Page {currentPage} of {totalPages}</Text>
+          <Button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} isDisabled={currentPage === totalPages}>Next</Button>
+        </HStack>
+      )}
     </VStack>
   );
 };
