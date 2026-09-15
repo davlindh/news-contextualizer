@@ -92,18 +92,18 @@ const NewsFeed = ({ sortOption, category, source, tag }) => {
 
   return (
     <VStack spacing={4} align="stretch">
-      <HStack>
+      <Stack direction={{ base: 'column', sm: 'row' }} spacing={3}>
         <Input
           placeholder="Search headlines..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <Select width="220px" value={provider} onChange={(e) => setProvider(e.target.value)}>
+        <Select width={{ base: 'full', sm: '220px' }} value={provider} onChange={(e) => setProvider(e.target.value)}>
           <option value="hackernews">Hacker News (no key)</option>
           <option value="gnews">GNews</option>
           <option value="newsapi">NewsAPI</option>
         </Select>
-      </HStack>
+      </Stack>
 
       {error && (
         <Alert status="info">
