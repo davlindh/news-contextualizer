@@ -11,8 +11,9 @@ export function scoreArticlesByRelevance(articles, feedback = {}, query = '') {
     const contentLengthScore = article.content ? article.content.length : 0;
     const publicationDateScore = new Date(article.publishedAt).getTime();
     const feedbackScore = feedback[index] ? (feedback[index].up - feedback[index].down) * 100 : 0;
-    const queryRelevanceScore = query ? (article.title.includes(query) || article.description.includes(query) ? 1000 : 0) : 0;
-    const sourceCredibilityScore = getSourceCredibilityScore(article.source.name);
+    const haystack = `${article.title || ''} ${article.description || ''}`.toLowerCase();
+    const queryRelevanceScore = query ? (haystack.includes(query.toLowerCase()) ? 1000 : 0) : 0;
+    const sourceCredibilityScore = getSourceCredibilityScore(article.source && article.source.name);
     const relevanceScore = contentLengthScore + publicationDateScore + feedbackScore + queryRelevanceScore + sourceCredibilityScore;
     return { ...article, relevanceScore };
   }).sort((a, b) => b.relevanceScore - a.relevanceScore);
