@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Container, Text, VStack, Input, Button, Box, HStack, Select, Flex, Heading, Link } from "@chakra-ui/react";
+import { Link as RouterLink } from 'react-router-dom';
 import { analyzeQuery, matchQueryToThemes } from '../utils/nlp';
 import NewsFeed from '../components/NewsFeed';
 
