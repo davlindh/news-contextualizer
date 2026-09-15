@@ -19,34 +19,55 @@ const NewsFeed = ({ sortOption, category, source, tag }) => {
   const articlesPerPage = 50;
 
   useEffect(() => {
+    const applyArticles = (list) => {
+      let filtered = list.filter(a => a && a.title);
+      if (category && category !== 'all') {
+        filtered = filtered.filter(a => !a.category || a.category === category);
+      }
+      if (source && source !== 'all') {
+        filtered = filtered.filter(a => !a.source || !a.source.name || a.source.name.toLowerCase().includes(source.split('-')[0]));
+      }
+      if (tag) {
+        const t = tag.toLowerCase();
+        filtered = filtered.filter(a => (a.title + ' ' + (a.description || '')).toLowerCase().includes(t));
+      }
+      let scored = scoreArticlesByRelevance(filtered, feedback, searchQuery);
+      if (sortOption === 'date') {
+        scored = [...scored].sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+      } else if (sortOption === 'popularity') {
+        scored = [...scored].sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+      }
+      setArticles(scored);
+      setTotalPages(Math.max(1, Math.ceil(scored.length / articlesPerPage)));
+      setCurrentPage(1);
+    };
+
     const fetchNews = async () => {
       try {
         const response = await axios.get('https://newsapi.org/v2/top-headlines', {
           params: {
             country: 'us',
-            apiKey: 'YOUR_NEWS_API_KEY',
+            apiKey: import.meta.env.VITE_NEWS_API_KEY,
             category: category !== 'all' ? category : undefined,
             sources: source !== 'all' ? source : undefined,
             q: tag ? tag : undefined
           }
         });
-        console.log('Fetched articles:', response.data.articles); // Add this line
-        let scoredArticles = scoreArticlesByRelevance(response.data.articles, feedback, searchQuery);
-        if (sortOption === 'date') {
-          scoredArticles = scoredArticles.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
-        } else if (sortOption === 'popularity') {
-          scoredArticles = scoredArticles.sort((a, b) => b.popularity - a.popularity);
-        }
-        setArticles(scoredArticles);
-        setTotalPages(Math.ceil(scoredArticles.length / articlesPerPage));
+        const list = response.data && response.data.articles ? response.data.articles : [];
+        applyArticles(list.length ? list : getSampleArticles());
       } catch (error) {
-        console.error('Error fetching news:', error);
+        applyArticles(getSampleArticles());
       } finally {
         setLoading(false);
       }
     };
 
-    fetchNews();
+    if (import.meta.env.VITE_NEWS_API_KEY) {
+      fetchNews();
+    } else {
+      applyArticles(getSampleArticles());
+      setLoading(false);
+    }
   }, [feedback, sortOption, category, source, searchQuery, tag]);
 
   useEffect(() => {
