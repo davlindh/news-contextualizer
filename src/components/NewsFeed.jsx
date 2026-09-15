@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Heading, Text, VStack, Spinner, Link, HStack, IconButton, Button, Input, SimpleGrid, Image, Select, Tooltip, Alert, AlertIcon } from "@chakra-ui/react";
+import { Box, Heading, Text, VStack, Spinner, Link, HStack, IconButton, Button, Input, SimpleGrid, Image, Select, Tooltip, Alert, AlertIcon, Stack } from "@chakra-ui/react";
 import { FaThumbsUp, FaThumbsDown } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { Link as RouterLink } from 'react-router-dom';
@@ -116,16 +116,16 @@ const NewsFeed = ({ sortOption, category, source, tag }) => {
       {loading ? (
         <Spinner size="xl" alignSelf="center" />
       ) : (
-        <SimpleGrid columns={{ sm: 1, md: 2, lg: 3 }} spacing={4}>
+        <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={4}>
           {currentArticles.map((article, index) => {
             const key = article.url || `${article.title}-${index}`;
             return (
               <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} key={key}>
                 <Box p={4} borderWidth="1px" borderRadius="lg" height="100%">
                   {article.urlToImage && (
-                    <Image src={article.urlToImage} alt={article.title} borderRadius="md" loading="lazy" />
+                    <Image src={article.urlToImage} alt={article.title} borderRadius="md" loading="lazy" width="100%" height={{ base: '180px', md: '160px' }} objectFit="cover" />
                   )}
-                  <Heading size="md" mt={2}>
+                  <Heading size={{ base: 'sm', md: 'md' }} mt={2}>
                     <Link href={article.url} isExternal>{article.title}</Link>
                   </Heading>
                   <Text mt={2}>{summarizeArticle(article.content || article.description)}</Text>
